@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'Error Notification',
+        'job_error_title' => 'Queue Job Failed',
         'log_title' => ':level Log',
         'fields' => [
             'environment' => 'Environment',

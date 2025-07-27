@@ -113,6 +113,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue Job Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | Enable monitoring of failed queue jobs. When enabled, the package will
+    | listen for JobFailed events and send Discord notifications.
+    |
+    */
+    'queue_monitoring' => [
+        'enabled' => env('WATCHDOG_DISCORD_QUEUE_MONITORING', true),
+        'include_payload' => env('WATCHDOG_DISCORD_QUEUE_INCLUDE_PAYLOAD', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Rate Limiting
     |--------------------------------------------------------------------------
     |

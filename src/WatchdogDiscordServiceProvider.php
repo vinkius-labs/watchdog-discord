@@ -6,7 +6,10 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Support\Facades\Queue;
 use VinkiusLabs\WatchdogDiscord\Commands\TestWatchdogDiscordCommand;
+use VinkiusLabs\WatchdogDiscord\Commands\TestWatchdogDiscordJobCommand;
 use VinkiusLabs\WatchdogDiscord\Console\Commands\ErrorAnalyticsCommand;
 use VinkiusLabs\WatchdogDiscord\Middleware\WatchdogDiscordMiddleware;
 use VinkiusLabs\WatchdogDiscord\Contracts\ErrorTrackingServiceInterface;
@@ -22,6 +25,7 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
         $this->bootPublishing();
         $this->bootCommands();
         $this->bootExceptionHandler();
+        $this->bootQueueFailedListener();
         $this->bootMiddleware();
         $this->bootViews();
         $this->bootTranslations();
@@ -88,6 +92,7 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 TestWatchdogDiscordCommand::class,
+                TestWatchdogDiscordJobCommand::class,
                 ErrorAnalyticsCommand::class,
             ]);
         }
@@ -109,6 +114,25 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
                     $this->sendDiscordNotification($e);
                 });
             }
+        });
+    }
+
+    /**
+     * Boot queue failed event listener
+     */
+    protected function bootQueueFailedListener(): void
+    {
+        if (! config('watchdog-discord.enabled', false)) {
+            return;
+        }
+
+        if (! config('watchdog-discord.queue_monitoring.enabled', true)) {
+            return;
+        }
+
+        // Listen for queue job failures
+        Queue::failing(function (JobFailed $event) {
+            $this->sendQueueFailedNotification($event);
         });
     }
 
@@ -222,6 +246,39 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
                 'original_exception' => $exception->getMessage(),
                 'file' => $exception->getFile(),
                 'line' => $exception->getLine(),
+            ]);
+        }
+    }
+
+    /**
+     * Send queue job failure notification to Discord
+     */
+    protected function sendQueueFailedNotification(JobFailed $event): void
+    {
+        try {
+            // Create a pseudo-exception from the job failure
+            $exception = $event->exception ?? new \Exception(
+                "Queue job failed: {$event->job->getName()}"
+            );
+
+            // Collect job context
+            $jobContext = [
+                'job_name' => $event->job->getName(),
+                'queue' => $event->job->getQueue(),
+                'connection' => $event->connectionName,
+                'attempts' => $event->job->attempts(),
+                'payload' => $event->job->payload(),
+            ];
+
+            app(DiscordNotifier::class)->sendJobFailure($exception, $jobContext);
+        } catch (\Exception $e) {
+            // We don't want our error handler to throw errors
+            // So we silently fail if something goes wrong with the notification
+            Log::error('Failed to send Discord notification for queue job failure', [
+                'error' => $e->getMessage(),
+                'job_name' => $event->job->getName() ?? 'Unknown job',
+                'queue' => $event->job->getQueue() ?? 'Unknown queue',
+                'connection' => $event->connectionName ?? 'Unknown connection',
             ]);
         }
     }

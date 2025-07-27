@@ -141,6 +141,42 @@ class DiscordNotifier
     }
 
     /**
+     * Send queue job failure notification to Discord
+     */
+    public function sendJobFailure(\Throwable $exception, array $jobContext = []): void
+    {
+        if (! $this->shouldSendNotification($exception)) {
+            return;
+        }
+
+        $webhookUrl = config('watchdog-discord.webhook_url');
+        if (!is_string($webhookUrl) || empty($webhookUrl)) {
+            return;
+        }
+
+        // Check rate limiting
+        if (! $this->checkRateLimit('job_failure')) {
+            return;
+        }
+
+        // Create enhanced error data with job context
+        $errorData = $this->formatJobFailureError($exception, $jobContext);
+
+        // Send via queue if enabled
+        if (config('watchdog-discord.queue.enabled', false)) {
+            SendDiscordErrorNotification::dispatch($errorData)
+                ->onConnection(config('watchdog-discord.queue.connection'))
+                ->onQueue(config('watchdog-discord.queue.queue'))
+                ->delay(config('watchdog-discord.queue.delay', 0));
+        } else {
+            $this->sendErrorNotification($errorData);
+        }
+
+        // Dispatch event
+        event(new ErrorNotificationSent($exception, $jobContext));
+    }
+
+    /**
      * Send log notification to Discord
      */
     public function sendLog(string $level, string $message, array $context = []): void
@@ -507,6 +543,63 @@ class DiscordNotifier
                 ],
             ],
         ];
+    }
+
+    /**
+     * Format job failure error for Discord notification
+     */
+    protected function formatJobFailureError(\Throwable $exception, array $jobContext = []): array
+    {
+        // Use the existing buildErrorPayload method as base
+        $payload = $this->buildErrorPayload($exception);
+
+        // Enhance with job-specific information
+        if (!empty($jobContext)) {
+            $jobFields = [];
+
+            if (isset($jobContext['job_name'])) {
+                $jobFields[] = [
+                    'name' => '🔧 Job Name',
+                    'value' => $this->truncateField($jobContext['job_name']),
+                    'inline' => true,
+                ];
+            }
+
+            if (isset($jobContext['queue'])) {
+                $jobFields[] = [
+                    'name' => '📋 Queue',
+                    'value' => $this->truncateField($jobContext['queue']),
+                    'inline' => true,
+                ];
+            }
+
+            if (isset($jobContext['connection'])) {
+                $jobFields[] = [
+                    'name' => '🔗 Connection',
+                    'value' => $this->truncateField($jobContext['connection']),
+                    'inline' => true,
+                ];
+            }
+
+            if (isset($jobContext['attempts'])) {
+                $jobFields[] = [
+                    'name' => '🔄 Attempts',
+                    'value' => (string) $jobContext['attempts'],
+                    'inline' => true,
+                ];
+            }
+
+            // Insert job fields at the beginning of the fields array
+            if (isset($payload['embeds'][0]['fields'])) {
+                $payload['embeds'][0]['fields'] = array_merge($jobFields, $payload['embeds'][0]['fields']);
+            }
+
+            // Update the title to indicate it's a job failure
+            $payload['embeds'][0]['title'] = '🚨 ' . $this->trans('notifications.job_error_title');
+            $payload['embeds'][0]['color'] = 0xFF0000; // Red color for job failures
+        }
+
+        return $payload;
     }
 
     /**

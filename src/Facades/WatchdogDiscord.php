@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static void send(\Throwable $exception)
+ * @method static void sendJobFailure(\Throwable $exception, array $jobContext = [])
  * @method static void sendLog(string $level, string $message, array $context = [])
  * @method static void info(string $message, array $context = [])
  * @method static void warning(string $message, array $context = [])
