@@ -2,9 +2,11 @@
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/vinkius-labs/watchdog-discord.svg?style=flat-square)](https://packagist.org/packages/vinkius-labs/watchdog-discord)
 [![Total Downloads](https://img.shields.io/packagist/dt/vinkius-labs/watchdog-discord.svg?style=flat-square)](https://packagist.org/packages/vinkius-labs/watchdog-discord)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/vinkius-labs/watchdog-discord/run-tests.yml?branch=main&label=tests)](https://github.com/vinkius-labs/watchdog-discord/actions)
+[![License](https://img.shields.io/packagist/l/vinkius-labs/watchdog-discord.svg?style=flat-square)](https://packagist.org/packages/vinkius-labs/watchdog-discord)
 
 **Enterprise-grade real-time error monitoring and alerting system for Laravel applications via Discord webhooks.**
+
+<img width="1244" height="890" alt="20250727_1034_Logo Laravel Watchdog_simple_compose_01k15kpqzmfd8bjwgsrdd36nvw" src="https://github.com/user-attachments/assets/3be108fb-5ce1-47d5-b3a9-96dba6db5eff" />
 
 ## Overview
 
