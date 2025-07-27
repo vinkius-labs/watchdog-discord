@@ -28,15 +28,12 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
 
     public function trackException(\Throwable $exception, string $level = 'error', array $context = []): ?ErrorTracking
     {
-        $hash = $this->computeErrorHash($exception->getMessage(), $exception->getFile(), $exception->getLine());
+        $hash = ErrorTracking::generateErrorHash($exception, app()->environment());
 
         if ($this->useAsync) {
             $this->enqueueForProcessing('exception', [
                 'hash' => $hash,
-                'class' => get_class($exception),
-                'message' => $exception->getMessage(),
-                'file' => $exception->getFile(),
-                'line' => $exception->getLine(),
+                'exception' => $exception,
                 'level' => $level,
                 'context' => $context,
             ]);
@@ -55,7 +52,7 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
 
     public function trackLog(string $level, string $message, array $context = []): ?ErrorTracking
     {
-        $hash = $this->computeErrorHash($message, null, null);
+        $hash = ErrorTracking::generateLogHash($level, $message, app()->environment());
 
         if ($this->useAsync) {
             $this->enqueueForProcessing('log', [
@@ -118,7 +115,7 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
         $existing = $model->where('error_hash', $hash)->first();
 
         if ($existing) {
-            $existing->increment('occurrence_count');
+            $existing->incrementOccurrence();
             return $existing;
         }
 
@@ -147,17 +144,18 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
     private function updateDatabaseCountInBackground(string $hash): void
     {
         $model = $this->createErrorTrackingModel();
-        $model->where('error_hash', $hash)->increment('occurrence_count');
+        $existing = $model->where('error_hash', $hash)->first();
+
+        if ($existing) {
+            $existing->incrementOccurrence();
+        }
     }
 
     private function createCachedErrorMock(int $count): ErrorTracking
     {
         $mock = new ErrorTracking();
         $mock->occurrence_count = $count;
-        $mock->should_notify = false;
-
-        $mock->shouldNotify = fn() => false;
-        $mock->recordNotificationSent = fn() => null;
+        $mock->setAttribute('occurrence_count', $count);
 
         return $mock;
     }
@@ -168,7 +166,7 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             try {
                 $queueKey = "{$this->redisPrefix}:queue:{$type}:" . uniqid();
                 Redis::setex($queueKey, 3600, json_encode($data));
-                return;
+                // Continue to also save in database below
             } catch (\Exception $e) {
                 Log::warning('Redis queue failed, processing synchronously', [
                     'error' => $e->getMessage(),
@@ -177,17 +175,35 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             }
         }
 
-        // Fallback to synchronous processing
-        if ($type === 'exception') {
-            $this->processDatabaseOnly($data['hash'], [
-                'exception_class' => $data['class'],
-                'message' => $data['message'],
-                'file' => $data['file'],
-                'line' => $data['line'],
+        // ALWAYS process in database for historical tracking
+        $databaseData = $this->prepareDatabaseData($type, $data);
+        $this->processDatabaseOnly($data['hash'], $databaseData);
+    }
+
+    /**
+     * Prepare data for database insertion based on type
+     */
+    private function prepareDatabaseData(string $type, array $data): array
+    {
+        return match ($type) {
+            'exception' => [
+                'exception_class' => get_class($data['exception']),
+                'message' => $data['exception']->getMessage(),
+                'file' => $data['exception']->getFile(),
+                'line' => $data['exception']->getLine(),
                 'level' => $data['level'],
                 'context' => json_encode($data['context']),
-            ]);
-        }
+            ],
+            'log' => [
+                'exception_class' => 'Log',
+                'message' => $data['message'],
+                'file' => null,
+                'line' => null,
+                'level' => $data['level'],
+                'context' => json_encode($data['context']),
+            ],
+            default => throw new \InvalidArgumentException("Unsupported tracking type: {$type}")
+        };
     }
 
     private function createErrorTrackingModel(): ErrorTracking
@@ -212,11 +228,6 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
         } catch (\Exception $e) {
             return false;
         }
-    }
-
-    private function computeErrorHash(string $message, ?string $file, ?int $line): string
-    {
-        return hash('xxh3', $message . ($file ?? '') . ($line ?? ''));
     }
 
     private function calculateSeverityScore(string $level): int
