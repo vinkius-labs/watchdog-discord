@@ -472,7 +472,7 @@ class DiscordNotifier
                     'fields' => $fields,
                     'timestamp' => now()->toISOString(),
                     'footer' => [
-                        'text' => 'Watchdog Discord',
+                        'text' => 'Vinkius - Watchdog Discord',
                     ],
                 ],
             ],
@@ -557,7 +557,7 @@ class DiscordNotifier
                     'fields' => $fields,
                     'timestamp' => now()->toISOString(),
                     'footer' => [
-                        'text' => 'Watchdog Discord',
+                        'text' => 'Vinkius - Watchdog Discord',
                     ],
                 ],
             ],
