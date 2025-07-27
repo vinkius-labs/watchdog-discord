@@ -1,0 +1,55 @@
+# Composer
+/vendor/
+composer.phar
+auth.json
+
+# IDE & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP
+.phpunit.result.cache
+.php_cs.cache
+.php-cs-fixer.cache
+phpunit.xml
+coverage/
+*.coverage
+
+# Laravel Package Specific
+.env
+.env.*
+!.env.example
+!.env.testing
+!.env.production.example
+
+# Build & Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Logs
+*.log
+storage/logs/*.log
+
+# Cache & Temp
+*.cache
+*.tmp
+.phpactor.json
+
+# Package Development
+.build/
+dist/
+docs/build/

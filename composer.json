@@ -1,0 +1,70 @@
+{
+    "name": "vinkius-labs/watchdog-discord",
+    "description": "Real-time error monitoring and alerting for Laravel apps via Discord",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "discord",
+        "monitoring",
+        "error-tracking",
+        "notifications",
+        "webhook",
+        "alerts"
+    ],
+    "authors": [
+        {
+            "name": "Vinkius Labs - Renato Marinho",
+            "email": "labs@vinkius.com",
+            "homepage": "https://labs.vinkius.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1|^8.2|^8.3",
+        "illuminate/support": "^9.0|^10.0|^11.0|^12.0",
+        "illuminate/http": "^9.0|^10.0|^11.0|^12.0",
+        "illuminate/contracts": "^9.0|^10.0|^11.0|^12.0",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5|^10.0|^11.0",
+        "orchestra/testbench": "^7.0|^8.0|^9.0|^10.0",
+        "mockery/mockery": "^1.4",
+        "phpstan/phpstan": "^1.0",
+        "laravel/pint": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "VinkiusLabs\\WatchdogDiscord\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "VinkiusLabs\\WatchdogDiscord\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "VinkiusLabs\\WatchdogDiscord\\WatchdogDiscordServiceProvider"
+            ],
+            "aliases": {
+                "WatchdogDiscord": "VinkiusLabs\\WatchdogDiscord\\Facades\\WatchdogDiscord"
+            }
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage",
+        "analyse": "vendor/bin/phpstan analyse",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

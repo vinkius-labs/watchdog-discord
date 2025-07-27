@@ -1,0 +1,36 @@
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel_watchdog_discord
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./vendor:/app/vendor
+    environment:
+      - WATCHDOG_DISCORD_ENABLED=true
+      - WATCHDOG_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/test/webhook/url
+      - WATCHDOG_DISCORD_QUEUE_ENABLED=false
+      - WATCHDOG_DISCORD_RATE_LIMIT_ENABLED=false
+      - APP_ENV=testing
+    networks:
+      - watchdog-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: laravel_watchdog_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - watchdog-network
+    profiles:
+      - with-redis
+
+networks:
+  watchdog-network:
+    driver: bridge
+
+volumes:
+  vendor-data:
