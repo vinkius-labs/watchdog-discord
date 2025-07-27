@@ -37,7 +37,16 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
                 'level' => $level,
                 'context' => $context,
             ]);
-            return null;
+
+            // Return a proper ErrorTracking record for async mode
+            return $this->createOrGetErrorRecord($hash, [
+                'exception_class' => get_class($exception),
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'level' => $level,
+                'context' => json_encode($context),
+            ]);
         }
 
         return $this->processErrorTracking($hash, [
@@ -61,7 +70,16 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
                 'message' => $message,
                 'context' => $context,
             ]);
-            return null;
+
+            // Return a proper ErrorTracking record for async mode
+            return $this->createOrGetErrorRecord($hash, [
+                'exception_class' => 'Log',
+                'message' => $message,
+                'file' => null,
+                'line' => null,
+                'level' => $level,
+                'context' => json_encode($context),
+            ]);
         }
 
         return $this->processErrorTracking($hash, [
@@ -166,7 +184,6 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             try {
                 $queueKey = "{$this->redisPrefix}:queue:{$type}:" . uniqid();
                 Redis::setex($queueKey, 3600, json_encode($data));
-                // Continue to also save in database below
             } catch (\Exception $e) {
                 Log::warning('Redis queue failed, processing synchronously', [
                     'error' => $e->getMessage(),
@@ -243,5 +260,21 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             'debug' => 3,
             default => 1
         };
+    }
+
+    /**
+     * Create or get existing error record for async mode
+     */
+    private function createOrGetErrorRecord(string $hash, array $data): ErrorTracking
+    {
+        $model = $this->createErrorTrackingModel();
+        $existing = $model->where('error_hash', $hash)->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        // Create new record for first-time errors
+        return $this->createErrorRecord($hash, $data);
     }
 }
