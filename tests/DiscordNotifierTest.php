@@ -36,7 +36,7 @@ class DiscordNotifierTest extends TestCase
 
         Http::assertSentCount(1);
         Http::assertSent(function (Request $request) {
-            $expectedTitle = '🚨 ' . trans('watchdog-discord.notifications.error_title', [], 'en');
+            $expectedTitle = '🚨 Error Notification';
             return $request->url() === 'https://discord.com/api/webhooks/test/webhook/url'
                 && $request->data()['embeds'][0]['title'] === $expectedTitle;
         });
@@ -83,7 +83,7 @@ class DiscordNotifierTest extends TestCase
 
         Http::assertSentCount(1);
         Http::assertSent(function (Request $request) {
-            $expectedTitle = '🚨 ' . trans('watchdog-discord.notifications.log_title', ['level' => 'Error'], 'en');
+            $expectedTitle = '🚨 Error Log';
             return $request->url() === 'https://discord.com/api/webhooks/test/webhook/url'
                 && $request->data()['embeds'][0]['title'] === $expectedTitle;
         });
@@ -242,7 +242,7 @@ class DiscordNotifierTest extends TestCase
 
         Http::assertSent(function (Request $request) {
             $fields = $request->data()['embeds'][0]['fields'];
-            $environmentFieldName = trans('watchdog-discord.notifications.fields.environment', [], 'en');
+            $environmentFieldName = 'Environment';
             foreach ($fields as $field) {
                 if ($field['name'] === $environmentFieldName && $field['value'] === 'Testing') {
                     return true;
@@ -265,7 +265,7 @@ class DiscordNotifierTest extends TestCase
 
         Http::assertSent(function (Request $request) {
             $fields = $request->data()['embeds'][0]['fields'];
-            $methodFieldName = trans('watchdog-discord.notifications.fields.method', [], 'en');
+            $methodFieldName = 'Method';
             foreach ($fields as $field) {
                 if ($field['name'] === $methodFieldName) {
                     return true;

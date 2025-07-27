@@ -14,6 +14,9 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
 
+        // Force service provider to boot by accessing the notifier
+        $this->app->make(\VinkiusLabs\WatchdogDiscord\DiscordNotifier::class);
+
         // Run migrations silently
         try {
             $this->artisan('migrate', ['--database' => 'sqlite'])->run();
@@ -31,15 +34,36 @@ abstract class TestCase extends Orchestra
      * Define which service providers to load for the test.
      *
      * @param  \Illuminate\Foundation\Application  $app
+     * @return array
+     */
+    protected function getPackageProviders($app): array
+    {
+        return [
+            WatchdogDiscordServiceProvider::class,
+        ];
+    }
+
+    /**
+     * Define which aliases to load for the test.
+     *
+     * @param  \Illuminate\Foundation\Application  $app
+     * @return array
+     */
+    protected function getPackageAliases($app): array
+    {
+        return [
+            'WatchdogDiscord' => \VinkiusLabs\WatchdogDiscord\Facades\WatchdogDiscord::class,
+        ];
+    }
+
+    /**
+     * Define environment setup.
+     *
+     * @param  \Illuminate\Foundation\Application  $app
      * @return void
      */
     protected function defineEnvironment($app): void
     {
-        // Register service providers
-        $app->register(WatchdogDiscordServiceProvider::class);
-
-        // Register facades
-        $app['config']->set('app.aliases.WatchdogDiscord', \VinkiusLabs\WatchdogDiscord\Facades\WatchdogDiscord::class);
 
         // Database configuration
         $app['config']->set('database.default', 'sqlite');

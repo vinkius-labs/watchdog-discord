@@ -34,15 +34,45 @@ class DiscordNotifier
      */
     protected function trans(string $key, array $replace = []): string
     {
-        $locale = $this->getLocale();
-        $translation = trans("watchdog-discord.{$key}", $replace, $locale);
+        $translation = __("watchdog-discord.{$key}", $replace);
 
-        // Fallback to English if translation is missing
+        // If translation failed, try to load it manually from file
         if ($translation === "watchdog-discord.{$key}") {
-            $translation = trans("watchdog-discord.{$key}", $replace, 'en');
+            $langFile = __DIR__ . '/../resources/lang/' . $this->getLocale() . '/watchdog-discord.php';
+
+            if (file_exists($langFile)) {
+                $translations = include $langFile;
+                $value = $this->getNestedArrayValue($translations, $key);
+
+                if ($value !== null) {
+                    // Replace placeholders
+                    foreach ($replace as $placeholder => $replacement) {
+                        $value = str_replace(":{$placeholder}", $replacement, $value);
+                    }
+                    return $value;
+                }
+            }
         }
 
         return $translation;
+    }
+
+    /**
+     * Get nested array value using dot notation
+     */
+    protected function getNestedArrayValue(array $array, string $key)
+    {
+        $keys = explode('.', $key);
+        $value = $array;
+
+        foreach ($keys as $segment) {
+            if (!is_array($value) || !array_key_exists($segment, $value)) {
+                return null;
+            }
+            $value = $value[$segment];
+        }
+
+        return $value;
     }
 
     /**

@@ -8,7 +8,6 @@ services:
     working_dir: /app
     volumes:
       - .:/app
-      - ./vendor:/app/vendor
     environment:
       - WATCHDOG_DISCORD_ENABLED=true
       - WATCHDOG_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/test/webhook/url

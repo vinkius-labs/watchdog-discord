@@ -28,20 +28,18 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /app
 
-# Copy composer files first for better caching
-COPY composer.json composer.lock ./
-
-# Install dependencies
-RUN composer install --no-scripts --no-autoloader --prefer-dist
-
 # Copy application code
 COPY . .
 
-# Generate autoloader
-RUN composer dump-autoload --optimize
+# Remove vendor directory if it exists to start fresh
+RUN rm -rf vendor
+
+# Install dependencies with proper requirements
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
 # Set correct permissions
 RUN chown -R www-data:www-data /app
 
-# Run tests by default
-CMD ["php", "vendor/bin/phpunit", "--colors=always"]
+# Default command for interactive use
+# docker-compose run --rm app ./vendor/bin/phpunit
+CMD ["bash"]
