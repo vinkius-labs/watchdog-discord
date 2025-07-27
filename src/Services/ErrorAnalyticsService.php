@@ -147,13 +147,23 @@ class ErrorAnalyticsService
             ->get()
             ->toArray();
 
-        // Hourly trend (last 24 hours) - SQLite compatible
+        // Hourly trend (last 24 hours) - Database agnostic
+        $connection = config('watchdog-discord.database.connection') ?? config('database.default');
+        $driver = config("database.connections.{$connection}.driver");
+
+        $hourSelection = match ($driver) {
+            'sqlite' => "strftime('%H', last_occurred_at)",
+            'mysql', 'mariadb' => "HOUR(last_occurred_at)",
+            'pgsql' => "EXTRACT(HOUR FROM last_occurred_at)",
+            default => "HOUR(last_occurred_at)" // Default to MySQL syntax
+        };
+
         $stats['hourly_trend'] = ErrorTracking::select(
-            DB::raw("strftime('%H', last_occurred_at) as hour"),
+            DB::raw("{$hourSelection} as hour"),
             DB::raw('count(*) as count')
         )
             ->where('last_occurred_at', '>=', Carbon::now()->subDay())
-            ->groupBy(DB::raw("strftime('%H', last_occurred_at)"))
+            ->groupBy(DB::raw($hourSelection))
             ->orderBy('hour')
             ->get()
             ->toArray();
