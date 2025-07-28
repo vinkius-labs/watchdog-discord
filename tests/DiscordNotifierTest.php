@@ -335,4 +335,90 @@ class DiscordNotifierTest extends TestCase
         $this->assertEquals(0xFFA500, $warningColor); // Orange
         $this->assertEquals(0x00BFFF, $infoColor); // Deep Sky Blue
     }
+
+    #[Test]
+    public function it_can_send_job_failure_notifications()
+    {
+        Http::fake();
+
+        $exception = new \Exception('Job failed exception');
+        $jobContext = [
+            'job_name' => 'ProcessPayment',
+            'queue' => 'payments',
+            'connection' => 'redis',
+            'attempts' => 3,
+        ];
+
+        $this->notifier->sendJobFailure($exception, $jobContext);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request) {
+            $embeds = $request->data()['embeds'];
+            $fields = $embeds[0]['fields'];
+            $fieldNames = array_column($fields, 'name');
+
+            return $request->url() === 'https://discord.com/api/webhooks/test/webhook/url'
+                && str_contains($embeds[0]['title'], 'Queue Job Failed')
+                && in_array('🔧 Job Name', $fieldNames)
+                && in_array('📋 Queue', $fieldNames)
+                && in_array('🔗 Connection', $fieldNames)
+                && in_array('🔄 Attempts', $fieldNames);
+        });
+    }
+
+    #[Test]
+    public function it_handles_job_failure_without_context()
+    {
+        Http::fake();
+
+        $exception = new \Exception('Job failed without context');
+        $this->notifier->sendJobFailure($exception, []);
+
+        Http::assertSentCount(1);
+        Http::assertSent(function (Request $request) {
+            $embeds = $request->data()['embeds'];
+            
+            // Should fall back to regular error notification when no job context
+            return $request->url() === 'https://discord.com/api/webhooks/test/webhook/url'
+                && str_contains($embeds[0]['title'], 'Error Notification');
+        });
+    }
+
+    #[Test]
+    public function it_formats_job_context_correctly()
+    {
+        $exception = new \Exception('Test exception');
+        $jobContext = [
+            'job_name' => 'ProcessPayment',
+            'queue' => 'payments',
+            'connection' => 'redis',
+            'attempts' => 2,
+        ];
+
+        // Use reflection to access the protected method
+        $reflection = new \ReflectionClass($this->notifier);
+        $method = $reflection->getMethod('formatJobFailureError');
+        $method->setAccessible(true);
+        $result = $method->invoke($this->notifier, $exception, $jobContext);
+
+        // Verify the payload structure
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('embeds', $result);
+        $this->assertArrayHasKey('fields', $result['embeds'][0]);
+
+        // Verify job-specific fields are present
+        $fields = $result['embeds'][0]['fields'];
+        $fieldNames = array_column($fields, 'name');
+
+        $this->assertContains('🔧 Job Name', $fieldNames);
+        $this->assertContains('📋 Queue', $fieldNames);
+        $this->assertContains('🔗 Connection', $fieldNames);
+        $this->assertContains('🔄 Attempts', $fieldNames);
+
+        // Verify the title is updated for job failures
+        $this->assertStringContainsString('Queue Job Failed', $result['embeds'][0]['title']);
+        
+        // Verify color is red for job failures
+        $this->assertEquals(0xFF0000, $result['embeds'][0]['color']);
+    }
 }

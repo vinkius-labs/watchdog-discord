@@ -169,7 +169,7 @@ class DiscordNotifier
                 ->onQueue(config('watchdog-discord.queue.queue'))
                 ->delay(config('watchdog-discord.queue.delay', 0));
         } else {
-            $this->sendErrorNotification($errorData);
+            $this->sendSynchronously($webhookUrl, $errorData, $exception);
         }
 
         // Dispatch event

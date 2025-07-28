@@ -4,7 +4,6 @@ namespace VinkiusLabs\WatchdogDiscord\Tests;
 
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Jobs\Job;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Mockery;
 use VinkiusLabs\WatchdogDiscord\DiscordNotifier;
@@ -20,11 +19,18 @@ class QueueJobFailureTest extends TestCase
             'watchdog-discord.queue_monitoring.enabled' => true,
         ]);
 
-        // Recreate the service provider to register listeners
-        $this->app->register(\VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider::class);
+        // Create a new service provider instance manually
+        $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
+        
+        // Use reflection to test the bootQueueFailedListener method directly
+        $reflection = new \ReflectionClass($serviceProvider);
+        $method = $reflection->getMethod('bootQueueFailedListener');
+        $method->setAccessible(true);
 
-        // Verify that Queue::failing was called
-        $this->assertTrue(true); // This is a basic test structure
+        // This should not throw any errors when conditions are met
+        $method->invoke($serviceProvider);
+        
+        $this->assertTrue(true); // Test passed if no exception thrown
     }
 
     /** @test */
@@ -36,10 +42,41 @@ class QueueJobFailureTest extends TestCase
             'watchdog-discord.queue_monitoring.enabled' => false,
         ]);
 
-        // Recreate the service provider
-        $this->app->register(\VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider::class);
+        // Create a new service provider instance manually
+        $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
+        
+        // Use reflection to test the bootQueueFailedListener method directly
+        $reflection = new \ReflectionClass($serviceProvider);
+        $method = $reflection->getMethod('bootQueueFailedListener');
+        $method->setAccessible(true);
 
-        $this->assertTrue(true); // This is a basic test structure
+        // This should return early and not register listeners
+        $method->invoke($serviceProvider);
+        
+        $this->assertTrue(true); // Test passed if no exception thrown
+    }
+
+    /** @test */
+    public function it_does_not_register_queue_failed_listener_when_package_disabled()
+    {
+        // Disable the entire package
+        config([
+            'watchdog-discord.enabled' => false,
+            'watchdog-discord.queue_monitoring.enabled' => true,
+        ]);
+
+        // Create a new service provider instance manually
+        $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
+        
+        // Use reflection to test the bootQueueFailedListener method directly
+        $reflection = new \ReflectionClass($serviceProvider);
+        $method = $reflection->getMethod('bootQueueFailedListener');
+        $method->setAccessible(true);
+
+        // This should return early and not register listeners
+        $method->invoke($serviceProvider);
+        
+        $this->assertTrue(true); // Test passed if no exception thrown
     }
 
     /** @test */

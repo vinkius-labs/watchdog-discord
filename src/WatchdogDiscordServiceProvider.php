@@ -130,7 +130,7 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
             return;
         }
 
-        // Listen for queue job failures
+        // Official Laravel way to listen for queue job failures
         Queue::failing(function (JobFailed $event) {
             $this->sendQueueFailedNotification($event);
         });
