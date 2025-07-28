@@ -13,6 +13,7 @@ use VinkiusLabs\WatchdogDiscord\Commands\TestWatchdogDiscordJobCommand;
 use VinkiusLabs\WatchdogDiscord\Commands\TestPhpErrorsCommand;
 use VinkiusLabs\WatchdogDiscord\Commands\DiagnoseErrorHandlingCommand;
 use VinkiusLabs\WatchdogDiscord\Commands\SimulateRealErrorsCommand;
+use VinkiusLabs\WatchdogDiscord\Commands\TestLogLevelsCommand;
 use VinkiusLabs\WatchdogDiscord\Console\Commands\ErrorAnalyticsCommand;
 use VinkiusLabs\WatchdogDiscord\Middleware\WatchdogDiscordMiddleware;
 use VinkiusLabs\WatchdogDiscord\Contracts\ErrorTrackingServiceInterface;
@@ -50,6 +51,9 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
         $this->app->singleton(DiscordNotifier::class, function ($app) {
             return new DiscordNotifier();
         });
+
+        // Register additional service bindings
+        $this->registerBindings();
 
         // Register the log listener in register method to ensure early registration
         $this->registerLogListener();
@@ -107,6 +111,7 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
                 TestPhpErrorsCommand::class,
                 DiagnoseErrorHandlingCommand::class,
                 SimulateRealErrorsCommand::class,
+                TestLogLevelsCommand::class,
                 ErrorAnalyticsCommand::class,
             ]);
         }
