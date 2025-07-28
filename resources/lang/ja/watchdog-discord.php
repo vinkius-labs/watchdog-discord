@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'エラー通知',
+        'job_error_title' => 'キュージョブ失敗',
         'log_title' => 'ログ :level',
         'fields' => [
             'environment' => '環境',
@@ -16,6 +17,8 @@ return [
             'user_id' => 'ユーザーID',
             'user_agent' => 'ユーザーエージェント',
             'stack_trace' => 'スタックトレース',
+            'frequency' => '頻度',
+            'severity' => '重大度',
         ],
     ],
     'commands' => [

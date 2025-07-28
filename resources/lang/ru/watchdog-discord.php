@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'Уведомление об Ошибке',
+        'job_error_title' => 'Сбой задания очереди',
         'log_title' => 'Журнал :level',
         'fields' => [
             'environment' => 'Окружение',
@@ -16,6 +17,8 @@ return [
             'user_id' => 'ID Пользователя',
             'user_agent' => 'User Agent',
             'stack_trace' => 'Стек Вызовов',
+            'frequency' => 'Частота',
+            'severity' => 'Серьёзность',
         ],
     ],
     'commands' => [

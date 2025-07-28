@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'Notification d\'Erreur',
+        'job_error_title' => 'Échec du Job de File',
         'log_title' => 'Journal :level',
         'fields' => [
             'environment' => 'Environnement',
@@ -16,6 +17,8 @@ return [
             'user_id' => 'ID Utilisateur',
             'user_agent' => 'Agent Utilisateur',
             'stack_trace' => 'Trace de Pile',
+            'frequency' => 'Fréquence',
+            'severity' => 'Gravité',
         ],
     ],
     'commands' => [

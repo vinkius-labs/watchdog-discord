@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'Fehlerbenachrichtigung',
+        'job_error_title' => 'Fehler im Warteschlangen-Job',
         'log_title' => 'Protokoll :level',
         'fields' => [
             'environment' => 'Umgebung',
@@ -16,6 +17,8 @@ return [
             'user_id' => 'Benutzer-ID',
             'user_agent' => 'Benutzeragent',
             'stack_trace' => 'Stack-Trace',
+            'frequency' => 'Häufigkeit',
+            'severity' => 'Schweregrad',
         ],
     ],
     'commands' => [

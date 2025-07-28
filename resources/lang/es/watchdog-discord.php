@@ -3,6 +3,7 @@
 return [
     'notifications' => [
         'error_title' => 'Notificación de Error',
+        'job_error_title' => 'Fallo en Trabajo de Cola',
         'log_title' => 'Log de :level',
         'fields' => [
             'environment' => 'Entorno',
@@ -16,6 +17,8 @@ return [
             'user_id' => 'ID de Usuario',
             'user_agent' => 'Agente de Usuario',
             'stack_trace' => 'Rastreo de Pila',
+            'frequency' => 'Frecuencia',
+            'severity' => 'Severidad',
         ],
     ],
     'commands' => [
