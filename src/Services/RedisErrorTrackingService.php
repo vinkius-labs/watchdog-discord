@@ -49,14 +49,14 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             ]);
         }
 
-        return $this->processErrorTracking($hash, [
-            'exception_class' => get_class($exception),
-            'message' => $exception->getMessage(),
-            'file' => $exception->getFile(),
-            'line' => $exception->getLine(),
+        // For synchronous mode, prepare complete data including request info
+        $completeData = $this->prepareDatabaseData('exception', [
+            'exception' => $exception,
             'level' => $level,
-            'context' => json_encode($context),
+            'context' => $context,
         ]);
+
+        return $this->processErrorTracking($hash, $completeData);
     }
 
     public function trackLog(string $level, string $message, array $context = []): ?ErrorTracking
@@ -82,14 +82,14 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
             ]);
         }
 
-        return $this->processErrorTracking($hash, [
-            'exception_class' => 'Log',
-            'message' => $message,
-            'file' => null,
-            'line' => null,
+        // For synchronous mode, prepare complete data including request info
+        $completeData = $this->prepareDatabaseData('log', [
             'level' => $level,
-            'context' => json_encode($context),
+            'message' => $message,
+            'context' => $context,
         ]);
+
+        return $this->processErrorTracking($hash, $completeData);
     }
 
     private function processErrorTracking(string $hash, array $data): ?ErrorTracking
@@ -202,14 +202,15 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
      */
     private function prepareDatabaseData(string $type, array $data): array
     {
-        return match ($type) {
+        $baseData = match ($type) {
             'exception' => [
                 'exception_class' => get_class($data['exception']),
                 'message' => $data['exception']->getMessage(),
                 'file' => $data['exception']->getFile(),
                 'line' => $data['exception']->getLine(),
                 'level' => $data['level'],
-                'context' => json_encode($data['context']),
+                'context' => json_encode($this->enrichContext($data['context'], $data['exception'])),
+                'stack_trace' => $this->formatStackTrace($data['exception']->getTrace()),
             ],
             'log' => [
                 'exception_class' => 'Log',
@@ -217,10 +218,151 @@ class RedisErrorTrackingService implements ErrorTrackingServiceInterface
                 'file' => null,
                 'line' => null,
                 'level' => $data['level'],
-                'context' => json_encode($data['context']),
+                'context' => json_encode($this->enrichContext($data['context'])),
+                'stack_trace' => null,
             ],
             default => throw new \InvalidArgumentException("Unsupported tracking type: {$type}")
         };
+
+        // Add request data if available
+        $requestData = $this->getRequestData();
+
+        return array_merge($baseData, $requestData);
+    }
+
+    /**
+     * Enrich context with additional debugging information
+     */
+    private function enrichContext(array $context, ?\Throwable $exception = null): array
+    {
+        // Add basic environment info
+        $enrichedContext = array_merge($context, [
+            'timestamp' => now()->toISOString(),
+            'environment' => app()->environment(),
+            'php_version' => PHP_VERSION,
+            'laravel_version' => app()->version(),
+        ]);
+
+        // Add memory and performance info
+        $enrichedContext['memory_usage'] = memory_get_usage(true);
+        $enrichedContext['memory_peak'] = memory_get_peak_usage(true);
+
+        // Add exception-specific context
+        if ($exception) {
+            $enrichedContext['exception_type'] = get_class($exception);
+
+            // For ErrorException (PHP errors), add severity information
+            if ($exception instanceof \ErrorException) {
+                $enrichedContext['error_severity'] = $this->getErrorSeverityName($exception->getSeverity());
+                $enrichedContext['error_severity_code'] = $exception->getSeverity();
+            }
+
+            // Add previous exception chain
+            $previous = $exception->getPrevious();
+            $previousExceptions = [];
+            while ($previous) {
+                $previousExceptions[] = [
+                    'class' => get_class($previous),
+                    'message' => $previous->getMessage(),
+                    'file' => $previous->getFile(),
+                    'line' => $previous->getLine(),
+                ];
+                $previous = $previous->getPrevious();
+            }
+            if (!empty($previousExceptions)) {
+                $enrichedContext['previous_exceptions'] = $previousExceptions;
+            }
+        }
+
+        // Add server information
+        if (isset($_SERVER)) {
+            $enrichedContext['server_info'] = [
+                'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
+                'php_sapi' => php_sapi_name(),
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            ];
+        }
+
+        return $enrichedContext;
+    }
+
+    /**
+     * Get human-readable error severity name
+     */
+    private function getErrorSeverityName(int $severity): string
+    {
+        return match ($severity) {
+            E_ERROR => 'E_ERROR',
+            E_WARNING => 'E_WARNING',
+            E_PARSE => 'E_PARSE',
+            E_NOTICE => 'E_NOTICE',
+            E_CORE_ERROR => 'E_CORE_ERROR',
+            E_CORE_WARNING => 'E_CORE_WARNING',
+            E_COMPILE_ERROR => 'E_COMPILE_ERROR',
+            E_COMPILE_WARNING => 'E_COMPILE_WARNING',
+            E_USER_ERROR => 'E_USER_ERROR',
+            E_USER_WARNING => 'E_USER_WARNING',
+            E_USER_NOTICE => 'E_USER_NOTICE',
+            E_STRICT => 'E_STRICT',
+            E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR',
+            E_DEPRECATED => 'E_DEPRECATED',
+            E_USER_DEPRECATED => 'E_USER_DEPRECATED',
+            default => "Unknown ({$severity})",
+        };
+    }
+
+    /**
+     * Get request data if available
+     */
+    private function getRequestData(): array
+    {
+        $requestData = [
+            'url' => null,
+            'method' => null,
+            'ip' => null,
+            'user_id' => null,
+        ];
+
+        try {
+            if (app()->bound('request') && request() !== null) {
+                $request = request();
+
+                $requestData['url'] = $request->fullUrl();
+                $requestData['method'] = $request->method();
+                $requestData['ip'] = $request->ip();
+
+                // Get user ID if authenticated
+                if (auth()->check()) {
+                    $requestData['user_id'] = auth()->id();
+                }
+            }
+        } catch (\Exception $e) {
+            // Silently fail if request data is not available (e.g., in console commands)
+            Log::debug('Could not collect request data', ['error' => $e->getMessage()]);
+        }
+
+        return $requestData;
+    }
+
+    /**
+     * Format stack trace for database storage
+     */
+    private function formatStackTrace(array $trace): ?string
+    {
+        try {
+            if (empty($trace)) {
+                return null;
+            }
+
+            // Limit stack trace to prevent database size issues
+            $maxFrames = config('watchdog-discord.formatting.max_stack_trace_lines', 10);
+            $limitedTrace = array_slice($trace, 0, $maxFrames);
+
+            return json_encode($limitedTrace, JSON_PRETTY_PRINT);
+        } catch (\Exception $e) {
+            Log::warning('Failed to format stack trace', ['error' => $e->getMessage()]);
+            return null;
+        }
     }
 
     private function createErrorTrackingModel(): ErrorTracking

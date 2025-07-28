@@ -10,6 +10,9 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Queue;
 use VinkiusLabs\WatchdogDiscord\Commands\TestWatchdogDiscordCommand;
 use VinkiusLabs\WatchdogDiscord\Commands\TestWatchdogDiscordJobCommand;
+use VinkiusLabs\WatchdogDiscord\Commands\TestPhpErrorsCommand;
+use VinkiusLabs\WatchdogDiscord\Commands\DiagnoseErrorHandlingCommand;
+use VinkiusLabs\WatchdogDiscord\Commands\SimulateRealErrorsCommand;
 use VinkiusLabs\WatchdogDiscord\Console\Commands\ErrorAnalyticsCommand;
 use VinkiusLabs\WatchdogDiscord\Middleware\WatchdogDiscordMiddleware;
 use VinkiusLabs\WatchdogDiscord\Contracts\ErrorTrackingServiceInterface;
@@ -93,6 +96,9 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
             $this->commands([
                 TestWatchdogDiscordCommand::class,
                 TestWatchdogDiscordJobCommand::class,
+                TestPhpErrorsCommand::class,
+                DiagnoseErrorHandlingCommand::class,
+                SimulateRealErrorsCommand::class,
                 ErrorAnalyticsCommand::class,
             ]);
         }
@@ -103,6 +109,7 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
      */
     protected function bootExceptionHandler(): void
     {
+        // Only register handlers if the watchdog is enabled
         if (! config('watchdog-discord.enabled', false)) {
             return;
         }
@@ -115,6 +122,110 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
                 });
             }
         });
+
+        // Register additional error handlers for PHP errors and warnings
+        // Only if watchdog is enabled and PHP errors are not explicitly disabled
+        if (config('watchdog-discord.php_errors.enabled', true)) {
+            $this->registerErrorHandlers();
+        }
+    }
+
+    /**
+     * Register additional error handlers for PHP errors, warnings, and notices
+     */
+    protected function registerErrorHandlers(): void
+    {
+        // PHP errors are always enabled by default since this is the main purpose of the package
+        // Users can disable specifically if needed via config
+        if (!config('watchdog-discord.php_errors.enabled', true)) {
+            return;
+        }
+
+        // Store reference to previous handler to avoid conflicts
+        $previousErrorHandler = set_error_handler(function ($severity, $message, $file, $line, $context = []) use (&$previousErrorHandler) {
+            // Only process if we should report this error
+            if ($this->shouldReportPhpError($severity) && $this->shouldReportErrorMessage($message)) {
+                try {
+                    $exception = new \ErrorException($message, 0, $severity, $file, $line);
+                    $this->sendDiscordNotification($exception);
+                } catch (\Throwable $e) {
+                    // Log the failure but don't break the error handling chain
+                    Log::warning('Watchdog Discord error handler failed', [
+                        'error' => $e->getMessage(),
+                        'original_error' => $message,
+                    ]);
+                }
+            }
+
+            // Call the previous error handler if it exists
+            if ($previousErrorHandler && is_callable($previousErrorHandler)) {
+                return call_user_func($previousErrorHandler, $severity, $message, $file, $line, $context);
+            }
+
+            // Return false to continue with normal error handling
+            return false;
+        }, E_ALL);
+
+        // Register a fatal error handler that works with shutdown
+        register_shutdown_function(function () {
+            $error = error_get_last();
+            if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                if ($this->shouldReportErrorMessage($error['message'])) {
+                    try {
+                        $exception = new \ErrorException(
+                            $error['message'],
+                            0,
+                            $error['type'],
+                            $error['file'],
+                            $error['line']
+                        );
+                        $this->sendDiscordNotification($exception);
+                    } catch (\Throwable $e) {
+                        // Log the failure
+                        Log::warning('Watchdog Discord fatal error handler failed', [
+                            'error' => $e->getMessage(),
+                            'original_error' => $error['message'],
+                        ]);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Determine if a PHP error should be reported
+     */
+    protected function shouldReportPhpError(int $severity): bool
+    {
+        $config = config('watchdog-discord.php_errors', [
+            'enabled' => true,
+            'report_levels' => E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED, // All errors except deprecations by default
+        ]);
+
+        if (!$config['enabled']) {
+            return false;
+        }
+
+        return ($severity & $config['report_levels']) !== 0;
+    }
+
+    /**
+     * Check if error message should be reported (only exclude patterns matter)
+     */
+    protected function shouldReportErrorMessage(string $message): bool
+    {
+        $config = config('watchdog-discord.php_errors', []);
+
+        // Only check exclude patterns - by default, capture EVERYTHING
+        $excludePatterns = $config['exclude_patterns'] ?? [];
+        foreach ($excludePatterns as $pattern) {
+            if (preg_match($pattern, $message)) {
+                return false;
+            }
+        }
+
+        // Always return true by default - capture all errors unless explicitly excluded
+        return true;
     }
 
     /**

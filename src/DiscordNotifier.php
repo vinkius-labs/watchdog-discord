@@ -474,7 +474,7 @@ class DiscordNotifier
             ],
             [
                 'name' => $this->trans('notifications.fields.error_type'),
-                'value' => $this->truncateField(get_class($exception)),
+                'value' => $this->truncateField($this->getErrorTypeDescription($exception)),
                 'inline' => true,
             ],
             [
@@ -488,6 +488,15 @@ class DiscordNotifier
                 'inline' => true,
             ],
         ];
+
+        // Add PHP error specific information
+        if ($exception instanceof \ErrorException) {
+            $fields[] = [
+                'name' => '🔍 PHP Error Level',
+                'value' => $this->getPhpErrorLevelName($exception->getSeverity()),
+                'inline' => true,
+            ];
+        }
 
         // Add frequency analysis if error tracking is enabled
         if ($errorRecord) {
@@ -517,14 +526,18 @@ class DiscordNotifier
         }
 
         // Add request data if enabled
-        if (config('watchdog-discord.include_request_data', true)) {
+        if (config('watchdog-discord.formatting.include_request_data', true)) {
             $fields = array_merge($fields, $this->getRequestFields());
         }
 
         // Add stack trace if enabled
-        if (config('watchdog-discord.include_stack_trace', true)) {
+        if (config('watchdog-discord.formatting.include_stack_trace', false)) {
             $fields[] = $this->getStackTraceField($exception);
         }
+
+        // Get title and color based on error type
+        $title = $this->getErrorTitle($exception);
+        $color = $this->getErrorColor($exception);
 
         return [
             'username' => config('watchdog-discord.message.username', 'Laravel Watchdog'),
@@ -532,9 +545,9 @@ class DiscordNotifier
             'content' => $mentions,
             'embeds' => [
                 [
-                    'title' => '🚨 ' . $this->trans('notifications.error_title'),
-                    'description' => $this->truncateField($exception->getMessage()),
-                    'color' => $this->getColorForLevel('error'),
+                    'title' => $title,
+                    'description' => $this->truncateField($this->formatErrorMessage($exception)),
+                    'color' => $color,
                     'fields' => $fields,
                     'timestamp' => now()->toISOString(),
                     'footer' => [
@@ -543,6 +556,98 @@ class DiscordNotifier
                 ],
             ],
         ];
+    }
+
+    /**
+     * Get error type description with better formatting for PHP errors
+     */
+    protected function getErrorTypeDescription(\Throwable $exception): string
+    {
+        $class = get_class($exception);
+
+        if ($exception instanceof \ErrorException) {
+            $severity = $this->getPhpErrorLevelName($exception->getSeverity());
+            return "PHP {$severity}";
+        }
+
+        return $class;
+    }
+
+    /**
+     * Get PHP error level name
+     */
+    protected function getPhpErrorLevelName(int $severity): string
+    {
+        return match ($severity) {
+            E_ERROR => 'Fatal Error',
+            E_WARNING => 'Warning',
+            E_PARSE => 'Parse Error',
+            E_NOTICE => 'Notice',
+            E_CORE_ERROR => 'Core Error',
+            E_CORE_WARNING => 'Core Warning',
+            E_COMPILE_ERROR => 'Compile Error',
+            E_COMPILE_WARNING => 'Compile Warning',
+            E_USER_ERROR => 'User Error',
+            E_USER_WARNING => 'User Warning',
+            E_USER_NOTICE => 'User Notice',
+            E_STRICT => 'Strict Standards',
+            E_RECOVERABLE_ERROR => 'Recoverable Error',
+            E_DEPRECATED => 'Deprecated',
+            E_USER_DEPRECATED => 'User Deprecated',
+            default => "Unknown Error ({$severity})",
+        };
+    }
+
+    /**
+     * Get appropriate title for the error
+     */
+    protected function getErrorTitle(\Throwable $exception): string
+    {
+        if ($exception instanceof \ErrorException) {
+            $severity = $this->getPhpErrorLevelName($exception->getSeverity());
+            return "🐛 PHP {$severity} Detected";
+        }
+
+        return '🚨 ' . $this->trans('notifications.error_title');
+    }
+
+    /**
+     * Get appropriate color for the error
+     */
+    protected function getErrorColor(\Throwable $exception): int
+    {
+        if ($exception instanceof \ErrorException) {
+            return match ($exception->getSeverity()) {
+                E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR => 0xFF0000, // Red
+                E_WARNING, E_CORE_WARNING, E_COMPILE_WARNING, E_USER_WARNING => 0xFF8000, // Orange
+                E_NOTICE, E_USER_NOTICE, E_STRICT => 0xFFFF00, // Yellow
+                E_DEPRECATED, E_USER_DEPRECATED => 0x808080, // Gray
+                default => 0xFF0000, // Red for unknown
+            };
+        }
+
+        return $this->getColorForLevel('error');
+    }
+
+    /**
+     * Format error message with better context for PHP errors
+     */
+    protected function formatErrorMessage(\Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        // Add helpful context for common PHP errors
+        if ($exception instanceof \ErrorException) {
+            if (str_contains($message, 'Undefined property:')) {
+                $message .= "\n💡 **Tip:** This property might not be initialized or could be a typo.";
+            } elseif (str_contains($message, 'does not exist')) {
+                $message .= "\n💡 **Tip:** Check the method name for typos or verify the class has this method.";
+            } elseif (str_contains($message, 'Call to undefined')) {
+                $message .= "\n💡 **Tip:** Verify the function/method exists and is properly imported.";
+            }
+        }
+
+        return $message;
     }
 
     /**
