@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('url')->nullable();
             $table->string('method', 10)->nullable();
             $table->ipAddress('ip')->nullable();
-            $table->unsignedBigInteger('user_id')->nullable()->index();
+            $table->string('user_id', 255)->nullable()->index(); // Support both integer and UUID user IDs
             $table->timestamp('first_occurred_at')->index();
             $table->timestamp('last_occurred_at')->index();
             $table->unsignedInteger('occurrence_count')->default(1);
