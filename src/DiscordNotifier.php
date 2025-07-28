@@ -530,10 +530,8 @@ class DiscordNotifier
             $fields = array_merge($fields, $this->getRequestFields());
         }
 
-        // Add stack trace if enabled
-        if (config('watchdog-discord.formatting.include_stack_trace', false)) {
-            $fields[] = $this->getStackTraceField($exception);
-        }
+        // Always include stack trace for better debugging
+        $fields[] = $this->getStackTraceField($exception, $errorRecord);
 
         // Get title and color based on error type
         $title = $this->getErrorTitle($exception);
@@ -846,22 +844,65 @@ class DiscordNotifier
     /**
      * Get stack trace field for Discord embed
      */
-    protected function getStackTraceField(\Throwable $exception): array
+    protected function getStackTraceField(\Throwable $exception, ?ErrorTracking $errorRecord = null): array
     {
-        $trace = $exception->getTraceAsString();
-        $lines = explode("\n", $trace);
+        // Use stored stack trace from ErrorTracking if available and more detailed
+        $stackTrace = null;
 
-        $maxLines = config('watchdog-discord.max_stack_trace_lines', 10);
+        if ($errorRecord && $errorRecord->stack_trace && is_array($errorRecord->stack_trace)) {
+            $stackTrace = $this->formatStructuredStackTrace($errorRecord->stack_trace);
+        } else {
+            // Fallback to exception's getTraceAsString
+            $stackTrace = $exception->getTraceAsString();
+        }
+
+        $lines = explode("\n", $stackTrace);
+        $maxLines = config('watchdog-discord.formatting.max_stack_trace_lines', 15);
+
         if (count($lines) > $maxLines) {
             $lines = array_slice($lines, 0, $maxLines);
             $lines[] = '... (truncated)';
         }
 
         return [
-            'name' => $this->trans('notifications.fields.stack_trace'),
+            'name' => '🔍 ' . $this->trans('notifications.fields.stack_trace'),
             'value' => $this->truncateField('```' . implode("\n", $lines) . '```'),
             'inline' => false,
         ];
+    }
+
+    /**
+     * Format structured stack trace from ErrorTracking
+     */
+    protected function formatStructuredStackTrace(array $stackTrace): string
+    {
+        $formatted = [];
+
+        foreach ($stackTrace as $index => $frame) {
+            $line = "#{$index} ";
+
+            if (!empty($frame['file'])) {
+                $line .= $frame['file'];
+                if (!empty($frame['line'])) {
+                    $line .= "({$frame['line']})";
+                }
+                $line .= ": ";
+            }
+
+            if (!empty($frame['class'])) {
+                $line .= $frame['class'];
+                if (!empty($frame['type'])) {
+                    $line .= $frame['type'];
+                }
+            }
+
+            $line .= $frame['function'] ?? 'unknown';
+            $line .= "()";
+
+            $formatted[] = $line;
+        }
+
+        return implode("\n", $formatted);
     }
 
     /**

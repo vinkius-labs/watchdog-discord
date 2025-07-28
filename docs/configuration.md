@@ -325,27 +325,19 @@ WATCHDOG_DISCORD_ENVIRONMENTS=production,staging,testing
 
 ```php
 'formatting' => [
-    'include_stack_trace' => env('WATCHDOG_DISCORD_INCLUDE_STACK_TRACE', false),
-    'max_stack_trace_lines' => env('WATCHDOG_DISCORD_MAX_STACK_TRACE_LINES', 10),
+    'max_stack_trace_lines' => env('WATCHDOG_DISCORD_MAX_STACK_TRACE_LINES', 15),
     'include_request_data' => env('WATCHDOG_DISCORD_INCLUDE_REQUEST_DATA', true),
     'max_field_length' => env('WATCHDOG_DISCORD_MAX_FIELD_LENGTH', 1024),
 ],
 ```
 
-### Include Stack Trace
-
-**Environment Variable**: `WATCHDOG_DISCORD_INCLUDE_STACK_TRACE`  
-**Type**: `boolean`  
-**Default**: `false`  
-**Description**: Include exception stack trace in Discord notifications.
-
-**Recommendation**: `false` for production, `true` for development.
+**Note**: Stack trace is always included in notifications for better debugging capabilities.
 
 ### Max Stack Trace Lines
 
 **Environment Variable**: `WATCHDOG_DISCORD_MAX_STACK_TRACE_LINES`  
 **Type**: `integer`  
-**Default**: `10`  
+**Default**: `15`  
 **Description**: Maximum number of stack trace lines to include.
 
 ### Include Request Data
@@ -583,7 +575,6 @@ WATCHDOG_DISCORD_ASYNC_ENABLED=false
 WATCHDOG_DISCORD_QUEUE_CONNECTION=sync
 WATCHDOG_DISCORD_ERROR_TRACKING_ENABLED=true
 WATCHDOG_DISCORD_MIN_SEVERITY=1
-WATCHDOG_DISCORD_INCLUDE_STACK_TRACE=true
 WATCHDOG_DISCORD_INCLUDE_REQUEST_DATA=true
 ```
 
@@ -614,7 +605,6 @@ WATCHDOG_DISCORD_QUEUE_CONNECTION=redis
 WATCHDOG_DISCORD_MIN_SEVERITY=7
 WATCHDOG_DISCORD_ENVIRONMENTS=production
 WATCHDOG_DISCORD_RATE_LIMIT_ENABLED=true
-WATCHDOG_DISCORD_INCLUDE_STACK_TRACE=false
 ```
 
 ## Best Practices

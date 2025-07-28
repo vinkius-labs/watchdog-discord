@@ -201,11 +201,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configure how messages are formatted and displayed.
+    | Stack trace is always included for better debugging capabilities.
     |
     */
     'formatting' => [
-        'include_stack_trace' => env('WATCHDOG_DISCORD_INCLUDE_STACK_TRACE', false),
-        'max_stack_trace_lines' => env('WATCHDOG_DISCORD_MAX_STACK_TRACE_LINES', 10),
+        'max_stack_trace_lines' => env('WATCHDOG_DISCORD_MAX_STACK_TRACE_LINES', 15),
         'include_request_data' => env('WATCHDOG_DISCORD_INCLUDE_REQUEST_DATA', true),
         'max_field_length' => env('WATCHDOG_DISCORD_MAX_FIELD_LENGTH', 1024),
     ],

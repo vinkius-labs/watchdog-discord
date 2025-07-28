@@ -257,13 +257,37 @@ class ErrorAnalyticsService
         $trace = [];
         foreach ($exception->getTrace() as $item) {
             $trace[] = [
-                'file' => $item['file'] ?? 'unknown',
-                'line' => $item['line'] ?? 0,
+                'file' => $item['file'] ?? null,
+                'line' => $item['line'] ?? null,
                 'function' => $item['function'] ?? 'unknown',
                 'class' => $item['class'] ?? null,
+                'type' => $item['type'] ?? null,
+                'args' => isset($item['args']) ? $this->sanitizeArgs($item['args']) : [],
             ];
         }
         return $trace;
+    }
+
+    /**
+     * Sanitize function arguments for safe storage
+     */
+    private function sanitizeArgs(array $args): array
+    {
+        $sanitized = [];
+        foreach ($args as $arg) {
+            if (is_scalar($arg)) {
+                $sanitized[] = $arg;
+            } elseif (is_array($arg)) {
+                $sanitized[] = '[Array(' . count($arg) . ')]';
+            } elseif (is_object($arg)) {
+                $sanitized[] = '[Object(' . get_class($arg) . ')]';
+            } elseif (is_resource($arg)) {
+                $sanitized[] = '[Resource]';
+            } else {
+                $sanitized[] = '[' . gettype($arg) . ']';
+            }
+        }
+        return $sanitized;
     }
 
     /**
