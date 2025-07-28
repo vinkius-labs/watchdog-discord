@@ -36,16 +36,24 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the application services.
+     * Register the service provider.
+     *
+     * @return void
      */
-    public function register(): void
+    public function register()
     {
-        $this->registerConfig();
-        $this->registerDatabaseConnections();
-        $this->registerBindings();
-        $this->registerAliases();
-    }
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/watchdog-discord.php',
+            'watchdog-discord'
+        );
 
+        $this->app->singleton(DiscordNotifier::class, function ($app) {
+            return new DiscordNotifier();
+        });
+
+        // Register the log listener in register method to ensure early registration
+        $this->registerLogListener();
+    }
     /**
      * Get the services provided by the provider.
      */
@@ -128,6 +136,46 @@ class WatchdogDiscordServiceProvider extends ServiceProvider
         if (config('watchdog-discord.php_errors.enabled', true)) {
             $this->registerErrorHandlers();
         }
+    }
+
+    /**
+     * Register log listener to capture Laravel logs
+     */
+    protected function registerLogListener(): void
+    {
+        // Only register log listener if the watchdog is enabled
+        if (! config('watchdog-discord.enabled', false)) {
+            return;
+        }
+
+        // Register listener after the application has booted to ensure Log facade is ready
+        $this->app->booted(function () {
+            try {
+                Log::listen(function ($logEntry) {
+                    try {
+                        // Prevent infinite loops - ignore our own log messages
+                        if (isset($logEntry->context['watchdog_discord_internal'])) {
+                            return;
+                        }
+
+                        // Send to Discord via the DiscordNotifier
+                        // The DiscordNotifier will handle all filtering and validation
+                        $notifier = app(DiscordNotifier::class);
+                        $notifier->sendLog($logEntry->level, $logEntry->message, $logEntry->context ?? []);
+                    } catch (\Throwable $e) {
+                        // Silently fail to prevent breaking the logging system
+                        // Log the error with our internal flag to prevent loops
+                        Log::warning('Watchdog Discord log listener failed', [
+                            'error' => $e->getMessage(),
+                            'watchdog_discord_internal' => true,
+                        ]);
+                    }
+                });
+            } catch (\Throwable $e) {
+                // Silently fail if Log::listen registration fails
+                // This could happen if Log facade is not ready
+            }
+        });
     }
 
     /**
