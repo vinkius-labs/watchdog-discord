@@ -55,6 +55,135 @@ WatchdogDiscord::info('New user registration', [
 ]);
 ```
 
+### Log Levels Usage Examples
+
+The package supports all standard PSR-3 log levels. Here are practical examples for each level:
+
+```php
+use VinkiusLabs\WatchdogDiscord\Facades\WatchdogDiscord;
+use Illuminate\Support\Facades\Log;
+
+// Emergency (severity: 10) - System unusable
+WatchdogDiscord::emergency('Database server down', [
+    'server' => 'db-primary',
+    'last_successful_connection' => now()->subMinutes(5),
+    'affected_services' => ['api', 'website', 'admin']
+]);
+
+// Alert (severity: 9) - Immediate action required  
+WatchdogDiscord::alert('Website unreachable', [
+    'url' => 'https://example.com',
+    'status_code' => null,
+    'timeout' => 30,
+    'monitoring_source' => 'pingdom'
+]);
+
+// Critical (severity: 8) - Critical conditions
+WatchdogDiscord::critical('Payment gateway failure', [
+    'gateway' => 'stripe',
+    'error' => 'Connection timeout',
+    'failed_transactions' => 15,
+    'time_window' => '5 minutes'
+]);
+
+// Error (severity: 6) - Error conditions
+WatchdogDiscord::error('User authentication failed', [
+    'user_email' => 'user@example.com',
+    'ip_address' => request()->ip(),
+    'attempt_count' => 3,
+    'locked_until' => now()->addMinutes(30)
+]);
+
+// Warning (severity: 4) - Warning conditions
+WatchdogDiscord::warning('High memory usage', [
+    'current_usage' => '85%',
+    'threshold' => '80%',
+    'server' => gethostname(),
+    'process_count' => 45
+]);
+
+// Notice (severity: 2) - Significant events
+WatchdogDiscord::notice('Admin user created', [
+    'admin_email' => 'admin@example.com',
+    'created_by' => auth()->user()->email,
+    'permissions' => ['users', 'settings', 'reports']
+]);
+
+// Info (severity: 1) - General information
+WatchdogDiscord::info('Scheduled backup completed', [
+    'backup_size' => '2.5GB',
+    'duration' => '45 minutes',
+    'files_count' => 15420,
+    'destination' => 's3://backups/daily/'
+]);
+
+// Debug (severity: 1) - Debug information
+WatchdogDiscord::debug('Cache warming started', [
+    'cache_store' => 'redis',
+    'keys_to_warm' => 150,
+    'estimated_time' => '2 minutes'
+]);
+```
+
+### Severity-Based Configuration
+
+Configure different log levels for different environments:
+
+```php
+// .env.production
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error
+WATCHDOG_DISCORD_MIN_SEVERITY=7
+
+// .env.staging  
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning
+WATCHDOG_DISCORD_MIN_SEVERITY=4
+
+// .env.local
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning,notice,info,debug
+WATCHDOG_DISCORD_MIN_SEVERITY=1
+```
+
+### Smart Severity Calculation Examples
+
+The system automatically calculates severity scores based on multiple factors:
+
+```php
+// Example 1: Simple info log (severity = 1)
+Log::info('User logged in', ['user_id' => 123]);
+// Result: Base score (1) + No exception (0) + First occurrence (0) = 1
+
+// Example 2: Error with high frequency (severity = 9)  
+Log::error('API rate limit exceeded');
+// After 50+ occurrences: Base score (6) + No exception (0) + High frequency (2) = 8
+// After 100+ occurrences: Base score (6) + No exception (0) + Very high frequency (3) = 9
+
+// Example 3: Critical error with runtime exception (severity = 10)
+try {
+    $result = $api->criticalOperation();
+} catch (RuntimeException $e) {
+    Log::critical('Critical operation failed', ['exception' => $e]);
+}
+// Result: Base score (8) + RuntimeException (2) + First occurrence (0) = 10
+```
+
+### Integration with Laravel's Log Facade
+
+You can also use Laravel's standard Log facade, and the package will automatically track and analyze:
+
+```php
+use Illuminate\Support\Facades\Log;
+
+// These will be automatically tracked if log level is configured
+Log::emergency('System failure detected');
+Log::alert('Immediate attention required');  
+Log::critical('Critical system error');
+Log::error('Application error occurred');
+Log::warning('Performance degradation detected');
+Log::notice('Significant event occurred');
+Log::info('General information logged');
+Log::debug('Debug information captured');
+```
+
 ## Advanced Configuration
 
 ### Environment-Specific Settings

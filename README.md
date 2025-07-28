@@ -119,6 +119,48 @@ WatchdogDiscord::sendLog('warning', 'High memory usage detected', [
 ]);
 ```
 
+### Log Levels Support
+
+The package supports all PSR-3 log levels with intelligent severity scoring:
+
+```php
+// Emergency level (severity: 10)
+WatchdogDiscord::emergency('Database server down');
+
+// Alert level (severity: 9)  
+WatchdogDiscord::alert('Payment gateway unreachable');
+
+// Critical level (severity: 8)
+WatchdogDiscord::critical('Application crashed');
+
+// Error level (severity: 6)
+WatchdogDiscord::error('User authentication failed');
+
+// Warning level (severity: 4)
+WatchdogDiscord::warning('High memory usage');
+
+// Notice level (severity: 2)
+WatchdogDiscord::notice('New admin user created');
+
+// Info level (severity: 1) 
+WatchdogDiscord::info('Backup completed successfully');
+
+// Debug level (severity: 1)
+WatchdogDiscord::debug('Cache warming started');
+```
+
+**Configuration**: Control which log levels are sent to Discord:
+
+```env
+# Production (critical issues only)
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error
+WATCHDOG_DISCORD_MIN_SEVERITY=7
+
+# Development (all levels)
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning,notice,info,debug  
+WATCHDOG_DISCORD_MIN_SEVERITY=1
+```
+
 ### Middleware Integration
 
 ```php

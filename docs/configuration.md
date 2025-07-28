@@ -204,6 +204,100 @@ Configure which error types should trigger notifications:
 - **Warnings**: Usually `false` for production
 - **Notices**: Usually `false` for production
 
+## Log Levels Configuration
+
+```php
+'log_levels' => explode(',', env('WATCHDOG_DISCORD_LOG_LEVELS', 'error,critical,emergency')),
+```
+
+**Environment Variable**: `WATCHDOG_DISCORD_LOG_LEVELS`  
+**Type**: `string` (comma-separated log levels)  
+**Default**: `error,critical,emergency`  
+**Description**: Specify which log levels should be sent to Discord when using `Log::info()`, `Log::error()`, etc.
+
+### Available Log Levels
+
+The following log levels are supported (ordered from highest to lowest severity):
+
+| Level | Severity Score | Description | Example Use Case |
+|-------|----------------|-------------|------------------|
+| `emergency` | 10 | System is unusable | Database completely down |
+| `alert` | 9 | Action must be taken immediately | Website unreachable |
+| `critical` | 8 | Critical conditions | Application crashes |
+| `error` | 6 | Error conditions | Exception thrown |
+| `warning` | 4 | Warning conditions | Deprecated API usage |
+| `notice` | 2 | Normal but significant | User login events |
+| `info` | 1 | Informational messages | General information |
+| `debug` | 1 | Debug-level messages | Development debugging |
+
+### Configuration Examples
+
+```env
+# Only critical issues (recommended for production)
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error
+
+# Include warnings for staging environment
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning
+
+# All levels for development/debugging
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning,notice,info,debug
+
+# Only info and above (useful for tracking specific events)
+WATCHDOG_DISCORD_LOG_LEVELS=emergency,alert,critical,error,warning,notice,info
+```
+
+### Severity Score Calculation
+
+The system automatically calculates a severity score (1-10) for each log entry using an intelligent algorithm:
+
+#### Base Score (by Log Level)
+- `emergency` = 10
+- `alert` = 9  
+- `critical` = 8
+- `error` = 6
+- `warning` = 4
+- `notice` = 2
+- `info` = 1
+- `debug` = 1
+
+#### Exception Type Bonus (+0 to +3)
+- `Error` and `ParseError` = +3
+- `TypeError` and `RuntimeException` = +2
+- Other exceptions = +0
+
+#### Frequency Bonus (+0 to +3)
+- ≥100 occurrences = +3
+- ≥50 occurrences = +2
+- ≥10 occurrences = +1
+- <10 occurrences = +0
+
+#### Final Calculation
+```
+Final Score = min(10, baseScore + exceptionBonus + frequencyBonus)
+```
+
+#### Examples
+```php
+// Critical error that occurred 150 times
+// critical (8) + RuntimeException (2) + frequency ≥100 (3) = 10
+
+// Info log first time
+// info (1) + no exception (0) + frequency <10 (0) = 1
+
+// Warning with type error that happened 15 times  
+// warning (4) + TypeError (2) + frequency ≥10 (1) = 7
+```
+
+### Notification Rules
+
+Logs will be sent to Discord if they meet **any** of these criteria:
+
+1. **High Severity**: `severity_score >= min_severity` (default: 7)
+2. **High Frequency**: `occurrence_count >= frequency_threshold` (default: 10)
+3. **Trending**: `hourly_count >= hourly_threshold` (default: 5)
+
+Configure these thresholds in the Error Tracking section.
+
 ## Environment Filtering
 
 ```php
@@ -386,9 +480,23 @@ WATCHDOG_DISCORD_ENVIRONMENTS=production,staging,testing
 
 **Severity Scale**:
 - 1-3: Low (debug, info, notice)
-- 4-6: Medium (warning)
-- 7-8: High (error)
-- 9-10: Critical (critical, alert, emergency)
+- 4-6: Medium (warning, error with low frequency)
+- 7-8: High (error, critical)
+- 9-10: Critical (alert, emergency, high-frequency errors)
+
+> **Note**: Severity scores are calculated automatically using an intelligent algorithm that considers log level, exception type, and frequency. See the [Log Levels Configuration](#log-levels-configuration) section for detailed calculation rules.
+
+**Examples**:
+```env
+# Only high-severity issues (recommended for production)
+WATCHDOG_DISCORD_MIN_SEVERITY=7
+
+# Include medium-severity warnings
+WATCHDOG_DISCORD_MIN_SEVERITY=4
+
+# Track all logs (useful for debugging)
+WATCHDOG_DISCORD_MIN_SEVERITY=1
+```
 
 ### Frequency Threshold
 

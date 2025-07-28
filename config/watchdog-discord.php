@@ -102,6 +102,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Log Levels
+    |--------------------------------------------------------------------------
+    |
+    | Specify which log levels should be sent to Discord.
+    | Available levels: emergency, alert, critical, error, warning, notice, info, debug
+    |
+    */
+    'log_levels' => explode(',', env('WATCHDOG_DISCORD_LOG_LEVELS', 'error,critical,emergency')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment Filtering
     |--------------------------------------------------------------------------
     |
