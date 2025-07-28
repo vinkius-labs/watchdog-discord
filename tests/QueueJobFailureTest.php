@@ -21,7 +21,7 @@ class QueueJobFailureTest extends TestCase
 
         // Create a new service provider instance manually
         $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
-        
+
         // Use reflection to test the bootQueueFailedListener method directly
         $reflection = new \ReflectionClass($serviceProvider);
         $method = $reflection->getMethod('bootQueueFailedListener');
@@ -29,7 +29,7 @@ class QueueJobFailureTest extends TestCase
 
         // This should not throw any errors when conditions are met
         $method->invoke($serviceProvider);
-        
+
         $this->assertTrue(true); // Test passed if no exception thrown
     }
 
@@ -44,7 +44,7 @@ class QueueJobFailureTest extends TestCase
 
         // Create a new service provider instance manually
         $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
-        
+
         // Use reflection to test the bootQueueFailedListener method directly
         $reflection = new \ReflectionClass($serviceProvider);
         $method = $reflection->getMethod('bootQueueFailedListener');
@@ -52,7 +52,7 @@ class QueueJobFailureTest extends TestCase
 
         // This should return early and not register listeners
         $method->invoke($serviceProvider);
-        
+
         $this->assertTrue(true); // Test passed if no exception thrown
     }
 
@@ -67,7 +67,7 @@ class QueueJobFailureTest extends TestCase
 
         // Create a new service provider instance manually
         $serviceProvider = new \VinkiusLabs\WatchdogDiscord\WatchdogDiscordServiceProvider($this->app);
-        
+
         // Use reflection to test the bootQueueFailedListener method directly
         $reflection = new \ReflectionClass($serviceProvider);
         $method = $reflection->getMethod('bootQueueFailedListener');
@@ -75,7 +75,7 @@ class QueueJobFailureTest extends TestCase
 
         // This should return early and not register listeners
         $method->invoke($serviceProvider);
-        
+
         $this->assertTrue(true); // Test passed if no exception thrown
     }
 

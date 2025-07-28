@@ -377,7 +377,7 @@ class DiscordNotifierTest extends TestCase
         Http::assertSentCount(1);
         Http::assertSent(function (Request $request) {
             $embeds = $request->data()['embeds'];
-            
+
             // Should fall back to regular error notification when no job context
             return $request->url() === 'https://discord.com/api/webhooks/test/webhook/url'
                 && str_contains($embeds[0]['title'], 'Error Notification');
@@ -417,7 +417,7 @@ class DiscordNotifierTest extends TestCase
 
         // Verify the title is updated for job failures
         $this->assertStringContainsString('Queue Job Failed', $result['embeds'][0]['title']);
-        
+
         // Verify color is red for job failures
         $this->assertEquals(0xFF0000, $result['embeds'][0]['color']);
     }
