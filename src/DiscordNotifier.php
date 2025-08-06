@@ -331,27 +331,11 @@ class DiscordNotifier
             $response = Http::timeout(10)->post($webhookUrl, $payload);
 
             if ($response->successful()) {
-                Log::debug('Discord error notification sent successfully', [
-                    'exception' => get_class($exception),
-                    'message' => $exception->getMessage(),
-                ]);
-
                 event(new ErrorNotificationSent($exception, $payload, true));
             } else {
-                Log::error('Failed to send Discord error notification', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'exception' => get_class($exception),
-                ]);
-
                 event(new ErrorNotificationSent($exception, $payload, false));
             }
         } catch (\Exception $e) {
-            Log::error('Exception occurred while sending Discord error notification', [
-                'error' => $e->getMessage(),
-                'exception' => get_class($exception),
-            ]);
-
             event(new ErrorNotificationSent($exception, $payload, false));
         }
     }
@@ -365,27 +349,11 @@ class DiscordNotifier
             $response = Http::timeout(10)->post($webhookUrl, $payload);
 
             if ($response->successful()) {
-                Log::debug('Discord log notification sent successfully', [
-                    'level' => $level,
-                    'message' => $message,
-                ]);
-
                 event(new LogNotificationSent($level, $message, $context, $payload, true));
             } else {
-                Log::error('Failed to send Discord log notification', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'level' => $level,
-                ]);
-
                 event(new LogNotificationSent($level, $message, $context, $payload, false));
             }
         } catch (\Exception $e) {
-            Log::error('Exception occurred while sending Discord log notification', [
-                'error' => $e->getMessage(),
-                'level' => $level,
-            ]);
-
             event(new LogNotificationSent($level, $message, $context, $payload, false));
         }
     }
